@@ -1,0 +1,18 @@
+:NAME APCpp-C
+
+:TEXT
+AP_C_Init
+AP_C_IsInit
+AP_C_Start
+AP_C_Shutdown
+AP_C_SetItemClearCallback
+AP_C_SetItemRecvCallback
+AP_C_SetLocationCheckedCallback
+AP_C_EnableQueueItemRecvMsgs
+AP_C_SetDeathLinkSupported
+AP_C_SendItem
+AP_C_StoryComplete
+AP_C_IsMessagePending
+AP_C_ClearLatestMessage
+AP_C_GetLatestMessage
+AP_C_Say

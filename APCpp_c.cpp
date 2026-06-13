@@ -1,5 +1,5 @@
 #include "APCpp_c.h"
-#include "Archipelago.h"
+#include <Archipelago.h>
 
 static void (*c_item_clear_cb)() = nullptr;
 static void (*c_item_recv_cb)(int64_t,AP_C_Bool) = nullptr;
