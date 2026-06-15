@@ -33,6 +33,8 @@ typedef struct AP_C_MapIntInt {
     int size;
 } AP_C_MapIntInt;
 
+void AP_C_SetClientVersion(AP_C_NetworkVersion* version);
+
 void AP_C_Init(const char* ip, const char* game, const char* player_name, const char* passwd);
 void AP_C_InitSinglePlayer(const char* filename);
 AP_C_Bool AP_C_IsInit();

@@ -31,6 +31,17 @@ static void SlotDataMapIntIntCallback(std::map<int,int> mapData) {
 
 extern "C" {
 
+void AP_C_SetClientVersion(AP_C_NetworkVersion* version) {
+    AP_NetworkVersion assignedVersion;
+    
+    assignedVersion.build = version->build;
+    assignedVersion.major = version->major;
+    assignedVersion.minor = version->minor;
+
+    AP_SetClientVersion(&assignedVersion);
+
+}
+
 void AP_C_Init(const char *ip, const char *game, const char *player_name, const char *passwd) {
     AP_Init(ip, game, player_name, passwd);
 }
