@@ -26,6 +26,7 @@ AP_C_IsMessagePending
 AP_C_ClearLatestMessage
 AP_C_GetLatestMessage
 AP_C_Say
+AP_C_GetRoomInfo
 AP_C_GetConnectionStatus
 AP_C_GetUUID
 AP_C_GetPlayerID

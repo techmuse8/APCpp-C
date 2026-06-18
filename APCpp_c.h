@@ -23,6 +23,11 @@ typedef struct AP_C_NetworkItem {
     char* playerName;
 } AP_C_NetworkItem;
 
+typedef struct AP_C_StrVector { // meant to be read only view
+    const char** items;
+    int size;
+} AP_C_StrVector;
+
 typedef struct AP_C_IntIntPair {
     int key;
     int value;
@@ -33,8 +38,31 @@ typedef struct AP_C_MapIntInt {
     int size;
 } AP_C_MapIntInt;
 
+typedef struct AP_C_StrIntPair {
+    const char* key;
+    int value;
+} AP_C_StrIntPair;
+
+typedef struct AP_C_MapStrInt {
+    AP_C_StrIntPair* items;
+    int size;
+} AP_C_MapStrInt;
+
+typedef struct AP_C_StrStrPair {
+    const char* key;
+    const char* value;
+} AP_C_StrStrPair;
+
+typedef struct AP_C_MapStrStr {
+    AP_C_StrStrPair* items;
+    int size;
+} AP_C_MapStrStr;
+
+
+//std::map<std::string, int> permissions;
+
 // "APC_DYNAMIC_MODE" lets you choose between either resolving all the APCpp-C
-// public functions manually at runtime (LoadLibrary, dlsym, etc.) or link time 
+// function exports manually at runtime (LoadLibrary, dlsym, etc.) or link time 
 #ifdef APC_DYNAMIC_MODE
 #define DECL_APC_FUNCTION(retType, func, ...)     extern retType (* func)(__VA_ARGS__)
 #else
@@ -111,25 +139,48 @@ typedef enum AP_C_ConnectionStatus {
 // #define AP_PERMISSION_GOAL 0b010
 // #define AP_PERMISSION_AUTO 0b110
 
-// struct AP_RoomInfo {
-//     AP_NetworkVersion version;
-//     std::vector<std::string> tags;
-//     bool password_required;
-//     std::map<std::string, int> permissions;
-//     int hint_cost;
-//     int location_check_points;
-//     //MISSING: games
-//     std::map<std::string, std::string> datapackage_checksums;
-//     std::string seed_name;
-//     double time;
-// };
+typedef struct AP_C_RoomInfo {
+    AP_C_NetworkVersion version;
+    AP_C_StrVector tags;
+    AP_C_Bool password_required;
+    AP_C_MapStrInt permissions;
+    int hint_cost;
+    int location_check_points;
+    //MISSING: games
+    AP_C_MapStrStr datapackage_checksums;
+    const char* seed_name;
+    double time;
+} AP_C_RoomInfo;
 
 /* Connection Information Functions */
 
-//int AP_GetRoomInfo(AP_RoomInfo*); //TODO: Implement
+DECL_APC_FUNCTION(int, AP_C_GetRoomInfo, AP_C_RoomInfo* client_roominfo); //TODO: Implement
 DECL_APC_FUNCTION(AP_C_ConnectionStatus, AP_C_GetConnectionStatus);
 DECL_APC_FUNCTION(uint64_t, AP_C_GetUUID);
 DECL_APC_FUNCTION(int, AP_C_GetPlayerID);
+
+/* Serverside Data Types */
+
+typedef enum AP_C_RequestStatus {
+    AP_ReqPending, AP_ReqDone, AP_ReqError
+} AP_C_RequestStatus;
+
+typedef enum AP_C_DataType {
+    AP_TypeRaw, AP_TypeInt, AP_TypeDouble
+} AP_C_DataType;
+
+typedef struct AP_C_GetServerDataRequest {
+    AP_C_RequestStatus status;
+    const char* key;
+    void* value;
+    AP_C_DataType type;
+} AP_C_GetServerDataRequest;
+
+typedef struct AP_C_DataStorageOperation {
+    const char* operation;
+    void* value;
+} AP_C_DataStorageOperation;
+
 
 #ifdef __cplusplus
 }

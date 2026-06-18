@@ -1,5 +1,6 @@
 #include "APCpp_c.h"
 #include <Archipelago.h>
+#include <cstring>
 #include <map>
 #include <vector>
 
@@ -10,24 +11,82 @@ static void (*c_slot_data_raw_cb)(const char*) = nullptr;
 
 static AP_C_Message sCurrentAPMessage;
 static std::vector<AP_C_IntIntPair> sCurrentSlotDataMap;
+static AP_C_RoomInfo sCurrentRoomInfo;
 
-static void convertMap(const std::map<int,int>& sourceMap, AP_C_MapIntInt& out) {
-    sCurrentSlotDataMap.clear();
-    sCurrentSlotDataMap.reserve(sourceMap.size());
+struct RoomInfoCtx {
+    std::vector<AP_C_StrIntPair> permissionStorage;
+    std::vector<AP_C_StrStrPair> dataPkgChecksums;
+    std::vector<const char*> convertedTagStrings;
+};
+
+static RoomInfoCtx sRoomInfoCtx;
+
+namespace {
+
+static inline const char* convert(const std::string& s) {
+    return s.c_str();
+}
+
+template <typename T>
+static inline T convert(const T& v)
+{
+    return v;
+}
+
+
+// convert std::map to C array view
+template <typename Map, typename OutMap, typename Storage>
+static void convertMap(const Map& sourceMap, OutMap& out, Storage& storageVec) {
+    storageVec.clear();
+    storageVec.reserve(sourceMap.size());
 
     for (const auto& [key, value] : sourceMap) {
-        sCurrentSlotDataMap.push_back({key, value});
+        storageVec.push_back({convert(key), convert(value)});
     }
 
-    out.items = sCurrentSlotDataMap.data();
-    out.size = sCurrentSlotDataMap.size();
+    out.items = storageVec.data();
+    out.size = storageVec.size();
+}
+
+// convert std::vector to C array view
+template <typename Vector, typename OutVector, typename Storage>
+static void convertVector(const Vector& sourceVector, OutVector& out, Storage& storageVec) {
+    storageVec.clear();
+    storageVec.reserve(sourceVector.size());
+
+    for (const auto& item : sourceVector) {
+        storageVec.push_back({convert(item)});
+    }
+
+    out.items = storageVec.data();
+    out.size = storageVec.size();
+}
+
+// Room info struct is owned internally
+static void convertAPRoomInfo(AP_RoomInfo& in, AP_C_RoomInfo &out) {
+    // version
+    out.version.build = in.version.build;
+    out.version.major = in.version.major;
+    out.version.minor = in.version.minor;
+
+    convertVector(in.tags, out.tags, sRoomInfoCtx.convertedTagStrings);
+
+    out.password_required = in.password_required;
+    convertMap(in.permissions, out.permissions, sRoomInfoCtx.permissionStorage);
+    out.hint_cost = in.hint_cost;
+    out.location_check_points = in.location_check_points;
+    convertMap(in.datapackage_checksums, out.datapackage_checksums, sRoomInfoCtx.dataPkgChecksums);
+    out.seed_name = in.seed_name.c_str();
+    out.time = in.time;
 }
 
 static void SlotDataMapIntIntCallback(std::map<int,int> mapData) {
     AP_C_MapIntInt slotData;
-    convertMap(mapData, slotData);
+    convertMap(mapData, slotData, sCurrentSlotDataMap);
     c_slot_data_map_intint_cb(&slotData);
 }
+
+} // namespace
 
 extern "C" {
 
@@ -157,6 +216,20 @@ AP_C_Message* AP_C_GetLatestMessage() {
 
 void AP_C_Say(const char* text) {
     AP_Say(text);
+}
+
+int AP_C_GetRoomInfo(AP_C_RoomInfo* client_roominfo) {
+    AP_RoomInfo srcRoominfo;
+    int ret = AP_GetRoomInfo(&srcRoominfo);
+
+    if (ret == 1)
+        return ret;
+    
+    memset(&sCurrentRoomInfo, 0, sizeof(sCurrentRoomInfo));
+    convertAPRoomInfo(srcRoominfo, sCurrentRoomInfo);
+   *client_roominfo = sCurrentRoomInfo;
+
+    return ret;
 }
 
 AP_C_ConnectionStatus AP_C_GetConnectionStatus() {
