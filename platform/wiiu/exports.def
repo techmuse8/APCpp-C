@@ -1,6 +1,7 @@
 :NAME APCpp-C
 
 :TEXT
+AP_C_SetClientVersion
 AP_C_Init
 AP_C_InitSinglePlayer
 AP_C_IsInit

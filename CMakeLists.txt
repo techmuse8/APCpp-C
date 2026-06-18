@@ -47,6 +47,8 @@ else()
     )
 endif()
 
+#target_compile_definitions(APCpp-C PUBLIC APC_DYNAMIC_MODE=0)
+
 target_include_directories(APCpp-C PRIVATE
     ${APCpp_SOURCE_DIR}
 )
