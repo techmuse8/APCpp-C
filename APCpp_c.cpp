@@ -8,6 +8,9 @@ static void (*c_deathlink_recvex_cb)(const char* source, const char* cause) = nu
 static void (*c_slot_data_int_cb)(int location) = nullptr;
 static void (*c_slot_data_map_intint_cb)(AP_C_MapIntInt*) = nullptr;
 static void (*c_slot_data_raw_cb)(const char*) = nullptr;
+static void (*c_locinfrecv)(AP_C_NetworkItemVector *items) = nullptr;
+static void (*c_setreply_cb)(AP_C_SetReply*) = nullptr;
+static void (*c_bounce_cb)(AP_C_Bounce*) = nullptr;
 
 static AP_C_Message sCurrentAPMessage;
 static std::vector<AP_C_IntIntPair> sCurrentSlotDataMap;
@@ -21,6 +24,8 @@ struct RoomInfoCtx {
 
 static RoomInfoCtx sRoomInfoCtx;
 
+static std::string sCurrentServerKey;
+
 namespace {
 
 static inline const char* convert(const std::string& s) {
@@ -28,8 +33,7 @@ static inline const char* convert(const std::string& s) {
 }
 
 template <typename T>
-static inline T convert(const T& v)
-{
+static inline T convert(const T& v) {
     return v;
 }
 
@@ -63,7 +67,7 @@ static void convertVector(const Vector& sourceVector, OutVector& out, Storage& s
 }
 
 // Room info struct is owned internally
-static void convertAPRoomInfo(AP_RoomInfo& in, AP_C_RoomInfo &out) {
+static void convertAPRoomInfo(const AP_RoomInfo& in, AP_C_RoomInfo &out) {
     // version
     out.version.build = in.version.build;
     out.version.major = in.version.major;
@@ -86,7 +90,69 @@ static void SlotDataMapIntIntCallback(std::map<int,int> mapData) {
     c_slot_data_map_intint_cb(&slotData);
 }
 
+static void LocationInfoCallbackWrapper(std::vector<AP_NetworkItem> items) {
+    AP_C_NetworkItemVector dstItems;
+    std::vector<AP_C_NetworkItem> storage;
+    
+    storage.reserve(items.size());
+
+    for(const auto& netItem : items) {
+        storage.push_back({
+            netItem.item,
+            netItem.location,
+            netItem.player,
+            netItem.flags,
+            netItem.itemName.c_str(),
+            netItem.locationName.c_str(),
+            netItem.playerName.c_str()
+        });
+    }
+
+    dstItems.items = storage.data();
+    dstItems.size = storage.size();
+
+    c_locinfrecv(&dstItems);
+}
+
+static void SetReplyCallbackWrapper(AP_SetReply reply) {
+    AP_C_SetReply dstReply;
+
+    dstReply.key = reply.key.c_str();
+    dstReply.original_value = reply.original_value;
+    dstReply.value = reply.value;
+
+    c_setreply_cb(&dstReply);
+}
+
 } // namespace
+
+static void SetBounceCallbackWrapper(AP_Bounce bounce) {
+    AP_C_Bounce dstBounce;
+
+    AP_C_StrVector gameVec;
+    AP_C_StrVector slotVec;
+    AP_C_StrVector tagVec;
+
+    std::vector<const char*> gameStorage;
+    std::vector<const char*> slotStorage;
+    std::vector<const char*> tagStorage;
+
+    dstBounce.data = bounce.data.c_str();
+
+    if (bounce.games)
+        convertVector(*bounce.games, gameVec, gameStorage);
+    if (bounce.slots)
+        convertVector(*bounce.slots, slotVec, slotStorage);
+    if (bounce.tags)
+        convertVector(*bounce.tags, tagVec, tagStorage);
+
+    dstBounce.games = &gameVec;
+    dstBounce.slots = &slotVec;
+    dstBounce.tags = &tagVec;
+
+    c_bounce_cb(&dstBounce);
+
+}
 
 extern "C" {
 
@@ -168,6 +234,13 @@ void AP_C_RegisterSlotDataRawCallback(const char* key, void (*f_slotdata)(const 
     });
 }
 
+void AP_C_SetLocationInfoCallback(void (*f_locinfrecv)(AP_C_NetworkItemVector *items)) {
+    c_locinfrecv = f_locinfrecv;
+
+    AP_SetLocationInfoCallback(LocationInfoCallbackWrapper);
+}
+
+
 void AP_C_EnableQueueItemRecvMsgs(AP_C_Bool enable) {
     AP_EnableQueueItemRecvMsgs(enable);
 }
@@ -244,4 +317,138 @@ int AP_C_GetPlayerID() {
     return AP_GetPlayerID();
 }
 
+void AP_C_SetServerData(AP_C_SetServerDataRequest* request) {
+    AP_SetServerDataRequest inReq;
+
+    inReq.status = static_cast<AP_RequestStatus>(request->status);
+    inReq.key = request->key;
+    inReq.default_value = request->default_value;
+    inReq.type = static_cast<AP_DataType>(request->type);
+    inReq.want_reply = request->want_reply;
+
+    for (int i = 0; i < request->operations.size; i++) {
+        AP_C_DataStorageOperation &entry = request->operations.items[i];
+        inReq.operations.push_back({entry.operation, entry.value});
+    }
+
+    AP_SetServerData(&inReq);
+    return;    
+}
+
+void AP_C_GetServerData(AP_C_GetServerDataRequest* request) {
+    AP_GetServerDataRequest inReq;
+    AP_GetServerData(&inReq);
+
+    sCurrentServerKey = inReq.key;
+
+    request->status = static_cast<AP_C_RequestStatus>(inReq.status);
+    request->key = sCurrentServerKey.c_str();
+    request->value = inReq.value;
+    request->type = static_cast<AP_C_DataType>(inReq.type);
+
+    return;
+}
+
+void AP_C_BulkSetServerData(AP_C_SetServerDataRequest* requests) {
+    AP_SetServerDataRequest inReq;
+
+    inReq.status = static_cast<AP_RequestStatus>(requests->status);
+    inReq.key = requests->key;
+    inReq.default_value = requests->default_value;
+    inReq.type = static_cast<AP_DataType>(requests->type);
+    inReq.want_reply = requests->want_reply;
+
+    for (int i = 0; i < requests->operations.size; i++) {
+        AP_C_DataStorageOperation &entry = requests->operations.items[i];
+        inReq.operations.push_back({entry.operation, entry.value});
+    }
+
+    AP_BulkSetServerData(&inReq);
+}
+
+void AP_C_BulkGetServerData(AP_C_GetServerDataRequest* request) {
+    AP_GetServerDataRequest inReq;
+    AP_BulkGetServerData(&inReq);
+
+    sCurrentServerKey = inReq.key;
+
+    request->status = static_cast<AP_C_RequestStatus>(inReq.status);
+    request->key = sCurrentServerKey.c_str();
+    request->value = inReq.value;
+    request->type = static_cast<AP_C_DataType>(inReq.type);
+
+    return;
+}
+
+void AP_C_CommitServerData() {
+    AP_CommitServerData();
+}
+
+const char* AP_C_GetPrivateServerDataPrefix() {
+    return AP_GetPrivateServerDataPrefix().c_str();
+}
+
+void AP_C_RegisterSetReplyCallback(void (*f_setreply)(AP_C_SetReply*)) {
+    c_setreply_cb = f_setreply;
+    AP_RegisterSetReplyCallback(SetReplyCallbackWrapper);
+}
+
+void AP_C_SetNotify(AP_C_MapStrAPType* keylist, AP_C_Bool requestCurrentValue) {
+    std::map<std::string, AP_DataType> inMap;
+
+    for (int i = 0; i < keylist->size; i++) {
+        AP_C_StrAPTypePair& entry = keylist->items[i];
+        inMap.emplace(entry.key, static_cast<AP_DataType>(entry.value));
+    }
+    
+    AP_SetNotify(inMap, requestCurrentValue);
+}
+
+void AP_C_SetNotifySingle(const char* key, AP_C_DataType type, AP_C_Bool requestCurrentValue) {
+    AP_SetNotify(key, static_cast<AP_DataType>(type), requestCurrentValue);
+}
+
+void AP_C_SendBounce(AP_C_Bounce* bounce) {
+    AP_Bounce inBounce;
+
+    std::vector<std::string> gamesVec;
+    std::vector<std::string> slotsVec;
+    std::vector<std::string> tagsVec;
+
+    inBounce.data = bounce->data;
+
+    if (bounce->games) {
+        for (int i = 0; i < bounce->games->size; i++) {
+            const char* entry = bounce->games->items[i];
+            gamesVec.push_back(entry);
+        }
+    }
+
+    if (bounce->slots) {
+        for (int i = 0; i < bounce->slots->size; i++) {
+            const char* entry = bounce->slots->items[i];
+            slotsVec.push_back(entry);
+        }
+    }
+
+    if (bounce->tags) {
+        for (int i = 0; i < bounce->tags->size; i++) {
+            const char* entry = bounce->slots->items[i];
+            tagsVec.push_back(entry);
+        }
+    }
+
+    inBounce.games = &gamesVec;
+    inBounce.slots = &slotsVec;
+    inBounce.tags = &tagsVec;
+
+    AP_SendBounce(inBounce);
+    return;
+}
+
+void AP_C_RegisterBouncedCallback(void (*f_bounced)(AP_C_Bounce*)) {
+    c_bounce_cb = f_bounced;
+
+    AP_RegisterBouncedCallback(SetBounceCallbackWrapper);
+}
 }

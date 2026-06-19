@@ -18,12 +18,25 @@ typedef struct AP_C_NetworkItem {
     int64_t location;
     int player;
     int flags;
-    char* itemName;
-    char* locationName;
-    char* playerName;
+    const char* itemName;
+    const char* locationName;
+    const char* playerName;
 } AP_C_NetworkItem;
 
-typedef struct AP_C_StrVector { // meant to be read only view
+// all the custom containers that are converted from C++ STL equivalents
+typedef struct AP_C_DataStorageOperation AP_C_DataStorageOperation;
+typedef struct AP_C_DataStorageOperationVector {
+    AP_C_DataStorageOperation* items;
+    int size;
+} AP_C_DataStorageOperationVector;
+
+typedef struct AP_C_NetworkItemVector {
+    AP_C_NetworkItem* items;
+    int size;
+} AP_C_NetworkItemVector;
+
+// TODO: Make a generic macro for these?
+typedef struct AP_C_StrVector {
     const char** items;
     int size;
 } AP_C_StrVector;
@@ -57,9 +70,6 @@ typedef struct AP_C_MapStrStr {
     AP_C_StrStrPair* items;
     int size;
 } AP_C_MapStrStr;
-
-
-//std::map<std::string, int> permissions;
 
 // "APC_DYNAMIC_MODE" lets you choose between either resolving all the APCpp-C
 // function exports manually at runtime (LoadLibrary, dlsym, etc.) or link time 
@@ -95,9 +105,10 @@ DECL_APC_FUNCTION(void, AP_C_SetDeathLinkRecvCallbackEx, void (*f_deathrecv)(con
 
 // Parameter Function receives Slotdata of respective type
 DECL_APC_FUNCTION(void, AP_C_RegisterSlotDataIntCallback, const char* key, void (*f_slotdata)(int location));
-DECL_APC_FUNCTION(void, AP_C_RegisterSlotDataMapIntIntCallback, const char* key, void(*f_slotdata)(AP_C_MapIntInt*));
+DECL_APC_FUNCTION(void, AP_C_RegisterSlotDataMapIntIntCallback, const char* key, void (*f_slotdata)(AP_C_MapIntInt*));
 DECL_APC_FUNCTION(void, AP_C_RegisterSlotDataRawCallback, const char* key, void (*f_slotdata)(const char*));
 
+DECL_APC_FUNCTION(void, AP_C_SetLocationInfoCallback, void (*f_locinfrecv)(AP_C_NetworkItemVector* items)); 
 /* Game Management Functions */
 
 DECL_APC_FUNCTION(void, AP_C_SendItem, int64_t location);
@@ -108,7 +119,7 @@ DECL_APC_FUNCTION(void, AP_C_StoryComplete);
 
 DECL_APC_FUNCTION(AP_C_Bool, AP_C_DeathLinkPending);
 DECL_APC_FUNCTION(void, AP_C_DeathLinkClear);
-DECL_APC_FUNCTION(void, AP_C_DeathLinkSendconst, char* cause);
+DECL_APC_FUNCTION(void, AP_C_DeathLinkSend, const char* cause);
 
 /* Message Management Types */
 typedef enum AP_C_MessageType {
@@ -181,6 +192,59 @@ typedef struct AP_C_DataStorageOperation {
     void* value;
 } AP_C_DataStorageOperation;
 
+typedef struct AP_C_SetReply {
+    const char* key;
+    void* original_value;
+    void* value;
+} AP_C_SetReply;
+
+typedef struct AP_C_SetServerDataRequest {
+    AP_C_RequestStatus status;
+    const char* key;
+    AP_C_DataStorageOperationVector operations;
+    void* default_value;
+    AP_C_DataType type;
+    AP_C_Bool want_reply;
+} AP_C_SetServerDataRequest;
+
+typedef struct AP_C_Bounce {
+    AP_C_StrVector* games; // Can be nullptr or empty, but must be set to either
+    AP_C_StrVector* slots; // Can be nullptr or empty, but must be set to either
+    AP_C_StrVector* tags; // Can be nullptr or empty, but must be set to either
+    const char* data; // Valid JSON Data. Can also be primitive (Numbers or literals)
+} AP_C_Bounce;
+
+typedef struct AP_C_StrAPTypePair {
+    const char* key;
+    AP_C_DataType value;
+} AP_C_StrAPTypePair;
+
+typedef struct AP_C_MapStrAPType {
+    AP_C_StrAPTypePair* items;
+    int size;
+} AP_C_MapStrAPType;
+
+/* Serverside Data Functions */
+
+// Set and Receive Data
+DECL_APC_FUNCTION(void, AP_C_SetServerData, AP_C_SetServerDataRequest* request);
+DECL_APC_FUNCTION(void, AP_C_GetServerData, AP_C_GetServerDataRequest* request);
+
+DECL_APC_FUNCTION(void, AP_C_BulkSetServerData, AP_C_SetServerDataRequest* requests);
+DECL_APC_FUNCTION(void, AP_C_BulkGetServerData, AP_C_GetServerDataRequest* requests);
+
+DECL_APC_FUNCTION(void, AP_C_CommitServerData);
+
+DECL_APC_FUNCTION(const char*, AP_C_GetPrivateServerDataPrefix);
+
+DECL_APC_FUNCTION(void, AP_C_RegisterSetReplyCallback, void (*f_setreply)(AP_C_SetReply*));
+
+DECL_APC_FUNCTION(void, AP_C_SetNotify, AP_C_MapStrAPType* keylist, AP_C_Bool requestCurrentValue);
+DECL_APC_FUNCTION(void, AP_C_SetNotifySingle, const char* key, AP_C_DataType type, AP_C_Bool requestCurrentValue);
+
+DECL_APC_FUNCTION(void, AP_C_SendBounce, AP_C_Bounce* bounce);
+
+DECL_APC_FUNCTION(void, AP_C_RegisterBouncedCallback, void (*f_bounced)(AP_C_Bounce*));
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,7 @@ AP_C_SetDeathLinkRecvCallbackEx
 AP_C_RegisterSlotDataIntCallback
 AP_C_RegisterSlotDataMapIntIntCallback
 AP_C_RegisterSlotDataRawCallback
+AP_C_SetLocationInfoCallback
 AP_C_SendItem
 AP_C_StoryComplete
 AP_C_DeathLinkPending
@@ -30,3 +31,14 @@ AP_C_GetRoomInfo
 AP_C_GetConnectionStatus
 AP_C_GetUUID
 AP_C_GetPlayerID
+AP_C_SetServerData
+AP_C_GetServerData
+AP_C_BulkSetServerData
+AP_C_BulkGetServerData
+AP_C_CommitServerData
+AP_C_GetPrivateServerDataPrefix
+AP_C_RegisterSetReplyCallback
+AP_C_SetNotify
+AP_C_SetNotifySingle
+AP_C_SendBounce
+AP_C_RegisterBouncedCallback
