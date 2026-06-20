@@ -42,3 +42,12 @@ AP_C_SetNotify
 AP_C_SetNotifySingle
 AP_C_SendBounce
 AP_C_RegisterBouncedCallback
+AP_C_SetGiftBoxProperties
+AP_C_QueryGiftBoxes
+AP_C_CheckGifts
+AP_C_AcceptGift
+AP_C_AcceptGiftSet
+AP_C_RejectGift
+AP_C_RejectGiftSet
+AP_C_UseGiftAutoReject
+AP_C_SetGiftingSupported

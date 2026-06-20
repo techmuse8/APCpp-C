@@ -26,7 +26,29 @@ static RoomInfoCtx sRoomInfoCtx;
 
 static std::string sCurrentServerKey;
 
+// Storage for querying gift boxes
+// TODO: Come up with better solution?
+static std::vector<AP_C_GiftBoxEntry> sBoxes;
+static std::vector<const char*> sTraitPtrs;
+static std::vector<char> sStringArena;
+
+struct currentGiftContext {
+    std::vector<AP_C_Gift> currentGifts;
+    std::vector<AP_C_GiftTrait> traits;
+    AP_C_GiftVector userGiftVec;
+};
+
+static currentGiftContext sCurrentGiftContext;
+
 namespace {
+
+static const char* arenaAdd(const std::string& str) {
+    size_t start = sStringArena.size();
+    sStringArena.insert(sStringArena.end(), str.begin(), str.end());
+    sStringArena.push_back('\0');
+    return sStringArena.data() + start;
+}
+
 
 static inline const char* convert(const std::string& s) {
     return s.c_str();
@@ -96,7 +118,7 @@ static void LocationInfoCallbackWrapper(std::vector<AP_NetworkItem> items) {
     
     storage.reserve(items.size());
 
-    for(const auto& netItem : items) {
+    for (const auto& netItem : items) {
         storage.push_back({
             netItem.item,
             netItem.location,
@@ -240,6 +262,14 @@ void AP_C_SetLocationInfoCallback(void (*f_locinfrecv)(AP_C_NetworkItemVector *i
     AP_SetLocationInfoCallback(LocationInfoCallbackWrapper);
 }
 
+void AP_C_SendLocationScouts(AP_C_LocationArray* locations, int create_as_hint) {
+    std::set<int64_t> locSet;
+
+    for (size_t i = 0; i < locations->size; i++)
+        locSet.insert(locations->items[i]);
+
+    AP_SendLocationScouts(locSet, create_as_hint);
+}
 
 void AP_C_EnableQueueItemRecvMsgs(AP_C_Bool enable) {
     AP_EnableQueueItemRecvMsgs(enable);
@@ -251,6 +281,15 @@ void AP_C_SetDeathLinkSupported(AP_C_Bool enable) {
 
 void AP_C_SendItem(int64_t location) {
     AP_SendItem(location);
+}
+
+void AP_C_SendItemSets(AP_C_ItemArray* itemArray) {
+    std::set<int64_t> locSet;
+
+    for (size_t i = 0; i < itemArray->size; i++)
+        locSet.insert(itemArray->items[i]);
+
+    AP_SendItem(locSet);
 }
 
 void AP_C_StoryComplete() {
@@ -433,7 +472,7 @@ void AP_C_SendBounce(AP_C_Bounce* bounce) {
 
     if (bounce->tags) {
         for (int i = 0; i < bounce->tags->size; i++) {
-            const char* entry = bounce->slots->items[i];
+            const char* entry = bounce->tags->items[i];
             tagsVec.push_back(entry);
         }
     }
@@ -451,4 +490,136 @@ void AP_C_RegisterBouncedCallback(void (*f_bounced)(AP_C_Bounce*)) {
 
     AP_RegisterBouncedCallback(SetBounceCallbackWrapper);
 }
+
+AP_C_RequestStatus AP_C_SetGiftBoxProperties(AP_C_GiftBoxProperties* props) {
+    AP_GiftBoxProperties inProps;
+    
+    inProps.IsOpen = props->IsOpen;
+    inProps.AcceptsAnyGift = props->AcceptsAnyGift;
+
+    for (int i = 0; i < props->DesiredTraits.size; i++) {
+        const char* entry = props->DesiredTraits.items[i];
+        inProps.DesiredTraits.push_back(entry);
+    }
+
+    return static_cast<AP_C_RequestStatus>(AP_SetGiftBoxProperties(inProps));
+}
+
+AP_C_GiftBoxEntryArray AP_C_QueryGiftBoxes() {
+    auto boxes = AP_QueryGiftBoxes();
+
+    sBoxes.clear();
+    sTraitPtrs.clear();
+    sStringArena.clear();
+
+    sBoxes.reserve(boxes.size());
+
+    for (const auto& [key, value] : boxes) {
+        AP_C_GiftBoxProperties prop;
+        prop.IsOpen = value.IsOpen;
+        prop.AcceptsAnyGift = value.AcceptsAnyGift;
+
+        const char* keyStr = arenaAdd(key.second);
+
+        // Create a slice for each trait entry
+        size_t traitStart = sTraitPtrs.size();
+
+        for (const auto& trait : value.DesiredTraits) {
+            sTraitPtrs.push_back(arenaAdd(trait.c_str()));
+        }
+
+        prop.DesiredTraits.items = sTraitPtrs.data() + traitStart;
+        prop.DesiredTraits.size = sTraitPtrs.size() - traitStart;
+
+        sBoxes.push_back({key.first, keyStr, prop});
+    }
+
+    return AP_C_GiftBoxEntryArray {
+        sBoxes.data(),
+        sBoxes.size()
+    };
+}
+
+AP_C_GiftVector* AP_C_CheckGifts() {
+    std::vector<AP_Gift> gifts = AP_CheckGifts();
+
+    sCurrentGiftContext.currentGifts.clear();
+    sCurrentGiftContext.traits.clear();
+
+    // Great nested containers
+    for (const auto& gift : gifts) {
+        size_t traitStart = sCurrentGiftContext.traits.size();
+
+        // Go a level deeper and save all the traits first
+        for (const auto& trait : gift.Traits) {
+            sCurrentGiftContext.traits.push_back({
+            trait.Trait.c_str(),
+            trait.Quality,
+            trait.Duration
+            });
+        }
+
+        size_t traitCount = sCurrentGiftContext.traits.size() - traitStart;
+
+        AP_C_GiftTraitVector traitView {
+            sCurrentGiftContext.traits.data() + traitStart,
+            traitCount
+        };
+
+        AP_C_Gift cGift;
+        cGift.ID = gift.ID.c_str();
+        cGift.ItemName = gift.ItemName.c_str();
+        cGift.Amount = gift.Amount;
+        cGift.ItemValue = gift.ItemValue;
+        cGift.Traits = traitView;
+        cGift.Sender = gift.Sender.c_str();
+        cGift.Receiver = gift.Receiver.c_str();
+        cGift.SenderTeam = gift.SenderTeam;
+        cGift.ReceiverTeam = gift.ReceiverTeam;
+        cGift.IsRefund = gift.IsRefund;
+        sCurrentGiftContext.currentGifts.push_back(cGift);
+    }
+
+    sCurrentGiftContext.userGiftVec.items = sCurrentGiftContext.currentGifts.data();
+    sCurrentGiftContext.userGiftVec.size = sCurrentGiftContext.currentGifts.size();
+    return &sCurrentGiftContext.userGiftVec;
+
+}
+
+AP_C_RequestStatus AP_C_AcceptGift(const char* id) {
+    return static_cast<AP_C_RequestStatus>(AP_AcceptGift(id));
+}
+
+AP_C_RequestStatus AP_C_AcceptGiftSet(AP_C_GiftSet* ids) {
+    std::set<std::string> giftSet;
+
+    for (size_t i = 0; i < ids->size; i++)
+        giftSet.insert(ids->items[i]);
+
+    return static_cast<AP_C_RequestStatus>(AP_AcceptGift(giftSet));
+}
+
+AP_C_RequestStatus AP_C_RejectGift(const char* id) {
+    return static_cast<AP_C_RequestStatus>(AP_RejectGift(id));
+}
+
+AP_C_RequestStatus AP_C_RejectGiftSet(AP_C_GiftSet* ids) {
+    std::set<std::string> giftSet;
+
+    for (size_t i = 0; i < ids->size; i++)
+        giftSet.insert(ids->items[i]);
+
+    return static_cast<AP_C_RequestStatus>(AP_RejectGift(giftSet));
+}
+
+void AP_C_UseGiftAutoReject(AP_C_Bool enable) {
+    AP_UseGiftAutoReject(enable);
+}
+
+void AP_C_SetGiftingSupported(AP_C_Bool enable) {
+    AP_SetGiftingSupported(enable);
+}
+
+
+
 }

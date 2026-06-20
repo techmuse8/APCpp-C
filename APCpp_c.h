@@ -1,11 +1,11 @@
 #pragma once
 #include <stdint.h>
-
+#include <stddef.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef uint8_t AP_C_Bool;
+typedef int AP_C_Bool;
 
 typedef struct AP_C_NetworkVersion {
     int major;
@@ -71,6 +71,16 @@ typedef struct AP_C_MapStrStr {
     int size;
 } AP_C_MapStrStr;
 
+typedef struct AP_C_LocationArray {
+    int64_t* items;
+    size_t size;
+} AP_C_LocationArray;
+
+typedef struct AP_C_ItemArray {
+    int64_t* items;
+    size_t size;
+} AP_C_ItemArray;
+
 // "APC_DYNAMIC_MODE" lets you choose between either resolving all the APCpp-C
 // function exports manually at runtime (LoadLibrary, dlsym, etc.) or link time 
 #ifdef APC_DYNAMIC_MODE
@@ -108,11 +118,13 @@ DECL_APC_FUNCTION(void, AP_C_RegisterSlotDataIntCallback, const char* key, void 
 DECL_APC_FUNCTION(void, AP_C_RegisterSlotDataMapIntIntCallback, const char* key, void (*f_slotdata)(AP_C_MapIntInt*));
 DECL_APC_FUNCTION(void, AP_C_RegisterSlotDataRawCallback, const char* key, void (*f_slotdata)(const char*));
 
-DECL_APC_FUNCTION(void, AP_C_SetLocationInfoCallback, void (*f_locinfrecv)(AP_C_NetworkItemVector* items)); 
+DECL_APC_FUNCTION(void, AP_C_SendLocationScouts, AP_C_LocationArray* locations, int create_as_hint);
+DECL_APC_FUNCTION(void, AP_C_SetLocationInfoCallback, void (*f_locinfrecv)(AP_C_NetworkItemVector* items));
+
 /* Game Management Functions */
 
 DECL_APC_FUNCTION(void, AP_C_SendItem, int64_t location);
-//DECL_APC_FUNCTION(void, AP_C_SendItemSets, int64_t location); // TODO: Implement this
+DECL_APC_FUNCTION(void, AP_C_SendItemSets, AP_C_ItemArray* itemArray);
 DECL_APC_FUNCTION(void, AP_C_StoryComplete);
 
 /* Deathlink Functions */
@@ -165,7 +177,7 @@ typedef struct AP_C_RoomInfo {
 
 /* Connection Information Functions */
 
-DECL_APC_FUNCTION(int, AP_C_GetRoomInfo, AP_C_RoomInfo* client_roominfo); //TODO: Implement
+DECL_APC_FUNCTION(int, AP_C_GetRoomInfo, AP_C_RoomInfo* client_roominfo);
 DECL_APC_FUNCTION(AP_C_ConnectionStatus, AP_C_GetConnectionStatus);
 DECL_APC_FUNCTION(uint64_t, AP_C_GetUUID);
 DECL_APC_FUNCTION(int, AP_C_GetPlayerID);
@@ -243,8 +255,82 @@ DECL_APC_FUNCTION(void, AP_C_SetNotify, AP_C_MapStrAPType* keylist, AP_C_Bool re
 DECL_APC_FUNCTION(void, AP_C_SetNotifySingle, const char* key, AP_C_DataType type, AP_C_Bool requestCurrentValue);
 
 DECL_APC_FUNCTION(void, AP_C_SendBounce, AP_C_Bounce* bounce);
-
 DECL_APC_FUNCTION(void, AP_C_RegisterBouncedCallback, void (*f_bounced)(AP_C_Bounce*));
+
+/* Gifting API Types */
+
+struct AP_C_GiftBoxProperties {
+    AP_C_Bool IsOpen;
+    AP_C_Bool AcceptsAnyGift;
+    AP_C_StrVector DesiredTraits;
+};
+
+struct AP_C_GiftTrait {
+    const char* Trait;
+    double Quality;  // 1. by default
+    double Duration; // ^
+};
+
+typedef struct AP_C_GiftTraitVector {
+    AP_C_GiftTrait* items;
+    uint32_t size;
+} AP_C_GiftTraitVector;
+
+typedef struct AP_C_Gift {
+    const char* ID;
+    const char* ItemName;
+    uint64_t Amount;
+    uint64_t ItemValue;
+    AP_C_GiftTraitVector Traits;
+    const char* Sender;
+    const char* Receiver;
+    int SenderTeam; // Always 0 for now
+    int ReceiverTeam; // Always 0 for now
+    AP_C_Bool IsRefund;
+} AP_C_Gift;
+
+typedef struct AP_C_GiftVector {
+    AP_C_Gift* items;
+    int size;
+} AP_C_GiftVector;
+
+typedef struct AP_C_GiftBoxEntry {
+    int key1;
+    const char* key2;
+    AP_C_GiftBoxProperties value;
+} AP_C_GiftBoxEntry;
+
+typedef struct AP_C_GiftBoxEntryArray {
+    const AP_C_GiftBoxEntry* items;
+    size_t size;
+} AP_C_GiftBoxEntryArray;
+
+typedef struct AP_C_GiftSet {
+    const char** items;
+    size_t size;
+} AP_C_GiftSet;
+
+/*
+ * Gifting API Functions
+ * 
+ * These functions wrap around the DataStorage functions, but work in a blocking manner
+ * They are only usable once authenticated. Be sure you are connected before using.
+ * However, even if not all functions with possible data loss will report errors on connection loss.
+ */
+
+DECL_APC_FUNCTION(AP_C_RequestStatus, AP_C_SetGiftBoxProperties, AP_C_GiftBoxProperties* props);
+
+DECL_APC_FUNCTION(AP_C_GiftBoxEntryArray, AP_C_QueryGiftBoxes);
+DECL_APC_FUNCTION(AP_C_GiftVector*, AP_C_CheckGifts);
+
+DECL_APC_FUNCTION(AP_C_RequestStatus, AP_C_AcceptGift, const char* id);
+DECL_APC_FUNCTION(AP_C_RequestStatus, AP_C_AcceptGiftSet, AP_C_GiftSet* ids);
+
+DECL_APC_FUNCTION(AP_C_RequestStatus, AP_C_RejectGift, const char* id);
+DECL_APC_FUNCTION(AP_C_RequestStatus, AP_C_RejectGiftSet, AP_C_GiftSet* ids);
+
+DECL_APC_FUNCTION(void, AP_C_UseGiftAutoReject, AP_C_Bool enable);
+DECL_APC_FUNCTION(void, AP_C_SetGiftingSupported, AP_C_Bool enable);
 
 #ifdef __cplusplus
 }
