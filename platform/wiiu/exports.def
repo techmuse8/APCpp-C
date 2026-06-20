@@ -19,6 +19,7 @@ AP_C_RegisterSlotDataMapIntIntCallback
 AP_C_RegisterSlotDataRawCallback
 AP_C_SetLocationInfoCallback
 AP_C_SendItem
+AP_C_SendItemSets
 AP_C_StoryComplete
 AP_C_DeathLinkPending
 AP_C_DeathLinkClear
