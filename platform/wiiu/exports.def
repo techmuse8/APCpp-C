@@ -17,6 +17,7 @@ AP_C_SetDeathLinkRecvCallbackEx
 AP_C_RegisterSlotDataIntCallback
 AP_C_RegisterSlotDataMapIntIntCallback
 AP_C_RegisterSlotDataRawCallback
+AP_C_SendLocationScouts
 AP_C_SetLocationInfoCallback
 AP_C_SendItem
 AP_C_SendItemSets
