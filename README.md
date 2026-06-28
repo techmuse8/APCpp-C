@@ -27,9 +27,9 @@ APCpp-C utilizes the CMake build system.
 ## Wii U
 For the Wii U version, this wrapper instead targets [my own port of APCpp for said platform.](https://github.com/techmuse8/APCpp-wiiu/tree/wiiu-port)
 > [!IMPORTANT]  
-> In order to build APCpp-C as an RPL (dynamic library) for Wii U, you'll have to build a custom fork of the wut homebrew toolchain from source, as RPLs are currently broken in upstream wut as of writing this. [See here for more information.](https://github.com/Crementif/wut/tree/new_rpl_fixes?tab=readme-ov-file#building-from-source)
+> In order to build APCpp-C as an RPL (dynamic library) for Wii U, you'll have to build a custom fork of the wut homebrew toolchain from source, as RPLs are currently broken in upstream wut as of writing this. [See here for more information.](https://github.com/techmuse8/wut/tree/rpl-upstream)
 
-You'll also need to have version 3.6.4-2 of [wiiu-mbedtls](https://github.com/dkosmari/wiiu-mbedtls-package/releases/tag/3.6.4-2) installed via `dkp-pacman`.
+You'll also need to have the latest version of [wiiu-mbedtls](https://github.com/dkosmari/wiiu-mbedtls-package/releases/latest) installed.
 After all of the required dependencies are installed, run the following commands to build the library: 
 
 ```
