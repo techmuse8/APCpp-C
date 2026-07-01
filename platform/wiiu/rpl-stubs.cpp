@@ -3,10 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <whb/log.h>
-#include <whb/log_module.h>
-#include <whb/log_cafe.h>
-#include <whb/log_udp.h>
+#include "wiiu-stderr.hpp"
+#include "wiiu-stdout.hpp"
 
 static bool moduleLogInit = 0;
 static bool cafeLogInit;
@@ -17,21 +15,13 @@ extern "C" uint64_t __atomic_fetch_add_8(volatile void* ptr, uint64_t val, int m
     return OSAddAtomic64((volatile int64_t*)ptr, val);
 }
 
-void initLogging()
-{
-   if (!(moduleLogInit = WHBLogModuleInit()))
-   {
-      cafeLogInit = WHBLogCafeInit();
-      udpLogInit = WHBLogUdpInit();
-   }
-}
-
 extern "C" int
 rpl_entry(OSDynLoad_Module module, OSDynLoad_EntryReason reason) {
    if (reason == OS_DYNLOAD_LOADED) {
-      initLogging();
+      wiiu_init_stdout();
+      wiiu_init_stderr();
    } else if (reason == OS_DYNLOAD_UNLOADED) {
-      // Do stuff on unload
+      wiiu_fini_whb_log();
    }
 
    return 0;
