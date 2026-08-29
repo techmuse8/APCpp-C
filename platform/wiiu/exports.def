@@ -12,6 +12,7 @@ AP_C_SetDeathLinkSupported
 AP_C_SetItemClearCallback
 AP_C_SetItemRecvCallback
 AP_C_SetLocationCheckedCallback
+AP_C_SetLoggingCallback
 AP_C_SetDeathLinkRecvCallback
 AP_C_SetDeathLinkRecvCallbackEx
 AP_C_RegisterSlotDataIntCallback
@@ -33,6 +34,7 @@ AP_C_GetRoomInfo
 AP_C_GetConnectionStatus
 AP_C_GetUUID
 AP_C_GetPlayerID
+AP_C_UpdateTags
 AP_C_SetServerData
 AP_C_GetServerData
 AP_C_BulkSetServerData
