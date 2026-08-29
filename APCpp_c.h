@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stdint.h>
 #include <stddef.h>
 #ifdef __cplusplus
@@ -40,6 +41,11 @@ typedef struct AP_C_StrVector {
     const char** items;
     int size;
 } AP_C_StrVector;
+
+typedef struct AP_C_Int64Vector {
+    int64_t* items;
+    int size;
+} AP_C_Int64Vector;
 
 typedef struct AP_C_IntIntPair {
     int key;
@@ -110,6 +116,7 @@ DECL_APC_FUNCTION(void, AP_C_SetLocationCheckedCallback, void (*cb)(int64_t loca
 
 /* Optional Callback Functions */
 
+DECL_APC_FUNCTION(void, AP_C_SetLoggingCallback, void (*f_log)(const char* msg));
 DECL_APC_FUNCTION(void, AP_C_SetDeathLinkRecvCallback, void (*f_deathrecv)());
 DECL_APC_FUNCTION(void, AP_C_SetDeathLinkRecvCallbackEx, void (*f_deathrecv)(const char*, const char*));
 
@@ -135,13 +142,13 @@ DECL_APC_FUNCTION(void, AP_C_DeathLinkSend, const char* cause);
 
 /* Message Management Types */
 typedef enum AP_C_MessageType {
-    AP_MsgPlaintext, AP_MsgItemSend, AP_MsgItemRecv, AP_MsgHint, AP_MsgCountdown
+    AP_MsgPlaintext, AP_MsgItemSend, AP_MsgItemRecv, AP_MsgHint, AP_MsgCountdown, AP_MsgChat, AP_MsgServerChat
 } AP_C_MessageType;
 
-struct AP_C_Message {
+typedef struct AP_C_Message {
     AP_C_MessageType type;
     const char* text;
-};
+} AP_C_Message;
 
 /* Message Management Functions */
 
@@ -181,6 +188,7 @@ DECL_APC_FUNCTION(int, AP_C_GetRoomInfo, AP_C_RoomInfo* client_roominfo);
 DECL_APC_FUNCTION(AP_C_ConnectionStatus, AP_C_GetConnectionStatus);
 DECL_APC_FUNCTION(uint64_t, AP_C_GetUUID);
 DECL_APC_FUNCTION(int, AP_C_GetPlayerID);
+DECL_APC_FUNCTION(void, AP_C_UpdateTags, AP_C_StrVector* tags);
 
 /* Serverside Data Types */
 
@@ -221,7 +229,7 @@ typedef struct AP_C_SetServerDataRequest {
 
 typedef struct AP_C_Bounce {
     AP_C_StrVector* games; // Can be nullptr or empty, but must be set to either
-    AP_C_StrVector* slots; // Can be nullptr or empty, but must be set to either
+    AP_C_Int64Vector* slots; // Can be nullptr or empty, but must be set to either
     AP_C_StrVector* tags; // Can be nullptr or empty, but must be set to either
     const char* data; // Valid JSON Data. Can also be primitive (Numbers or literals)
 } AP_C_Bounce;

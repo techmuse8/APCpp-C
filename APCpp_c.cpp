@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 
+static void (*c_log_cb)(const char *msg);
 static void (*c_deathlink_recvex_cb)(const char* source, const char* cause) = nullptr;
 static void (*c_slot_data_int_cb)(int location) = nullptr;
 static void (*c_slot_data_map_intint_cb)(AP_C_MapIntInt*) = nullptr;
@@ -152,11 +153,11 @@ static void SetBounceCallbackWrapper(AP_Bounce bounce) {
     AP_C_Bounce dstBounce;
 
     AP_C_StrVector gameVec;
-    AP_C_StrVector slotVec;
+    AP_C_Int64Vector slotVec;
     AP_C_StrVector tagVec;
 
     std::vector<const char*> gameStorage;
-    std::vector<const char*> slotStorage;
+    std::vector<int64_t> slotStorage;
     std::vector<const char*> tagStorage;
 
     dstBounce.data = bounce.data.c_str();
@@ -221,11 +222,22 @@ void AP_C_SetLocationCheckedCallback(void (*cb)(int64_t)) {
     AP_SetLocationCheckedCallback(cb);
 }
 
+void AP_C_SetLoggingCallback(void (*f_log)(const char *msg)) {
+    c_log_cb = f_log;
+
+    AP_SetLoggingCallback([](std::string msg) {
+        if (c_log_cb)
+            c_log_cb(msg.c_str());
+    });
+}
+
 void AP_C_SetDeathLinkRecvCallback(void (*f_deathrecv)()) {
    AP_SetDeathLinkRecvCallback(f_deathrecv);
 }
 
 void AP_C_SetDeathLinkRecvCallbackEx(void (*f_deathrecv)(const char* source, const char* cause)) {
+    c_deathlink_recvex_cb = f_deathrecv;
+
     AP_SetDeathLinkRecvCallback([](std::string source, std::string cause){
         if (c_deathlink_recvex_cb)
             c_deathlink_recvex_cb(source.c_str(), cause.c_str());
@@ -356,6 +368,15 @@ int AP_C_GetPlayerID() {
     return AP_GetPlayerID();
 }
 
+void AP_C_UpdateTags(AP_C_StrVector *tags) {
+    std::vector<std::string> inTags;
+
+    for (size_t i = 0; i < tags->size; i++)
+        inTags.push_back(tags->items[i]);
+
+    AP_UpdateTags(inTags);
+}
+
 void AP_C_SetServerData(AP_C_SetServerDataRequest* request) {
     AP_SetServerDataRequest inReq;
 
@@ -451,7 +472,7 @@ void AP_C_SendBounce(AP_C_Bounce* bounce) {
     AP_Bounce inBounce;
 
     std::vector<std::string> gamesVec;
-    std::vector<std::string> slotsVec;
+    std::vector<int64_t> slotsVec;
     std::vector<std::string> tagsVec;
 
     inBounce.data = bounce->data;
@@ -465,7 +486,7 @@ void AP_C_SendBounce(AP_C_Bounce* bounce) {
 
     if (bounce->slots) {
         for (int i = 0; i < bounce->slots->size; i++) {
-            const char* entry = bounce->slots->items[i];
+            int64_t entry = bounce->slots->items[i];
             slotsVec.push_back(entry);
         }
     }

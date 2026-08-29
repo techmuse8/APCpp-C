@@ -23,7 +23,7 @@ if(WIIU)
     FetchContent_Declare(
         APCpp
         GIT_REPOSITORY https://github.com/techmuse8/APCpp-wiiu.git
-        GIT_TAG 9fe6617ca79b89860bff3ccbe1f3acac9f38e8bc
+        GIT_TAG b8a69d89acaa0444b74edc5586fa1b57ec62372a
     )
 else()
     message(STATUS "Using upstream APCpp")
@@ -31,7 +31,7 @@ else()
     FetchContent_Declare(
         APCpp
         GIT_REPOSITORY https://github.com/N00byKing/APCpp.git
-        GIT_TAG a0df4ae602568944b489eccfe3e87d14baa2a1b1
+        GIT_TAG 172f683d4306b4fa209949419993198f87d881ed
     )
 endif()
 
